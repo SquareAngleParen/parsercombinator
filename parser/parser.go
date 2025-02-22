@@ -30,6 +30,19 @@ func AndThen[T any, U any](parser Parser[T], handler func(T) Parser[U]) Parser[U
 	}
 }
 
+func ExactRune(token rune) Parser[Empty] {
+	return func(s State) (Empty, State, error) {
+		r, next, err := s.Rune()
+		if err != nil {
+			return Empty{}, s, err
+		}
+		if token != r {
+			return Empty{}, s, ErrNoMatch
+		}
+		return Empty{}, next, nil
+	}
+}
+
 func ExactString(token string) Parser[Empty] {
 	return func(s State) (Empty, State, error) {
 		next := s
