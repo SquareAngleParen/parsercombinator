@@ -1,6 +1,9 @@
 package parser
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestExactString(t *testing.T) {
 	p := ExactString("foo")
@@ -24,3 +27,19 @@ func TestAndThen_OK(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCollectBytes(t *testing.T) {
+	const data = "1234abcd5678efgh90"
+	p := CollectBytes(ExactString(data))
+	state := NewStateReaderSize(strings.NewReader(data), 8)
+
+	result, err := DoParseState(p, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(result) != data {
+		t.Fatal()
+	}
+}
+
+// TODO more collect tests
