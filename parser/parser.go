@@ -1,8 +1,6 @@
 package parser
 
-import (
-	"fmt"
-)
+import "fmt"
 
 var ErrNoMatch = fmt.Errorf("parser: no match")
 
@@ -11,10 +9,12 @@ type Parser[T any] func(State) (T, State, error)
 type Empty struct{}
 
 func DoParse[T any](parser Parser[T], input string) (T, error) {
-	state := State{
-		buffer: []byte(input),
-		offset: 0,
-	}
+	state := NewStateString(input)
+	result, _, err := parser(state)
+	return result, err
+}
+
+func DoParseState[T any](parser Parser[T], state State) (T, error) {
 	result, _, err := parser(state)
 	return result, err
 }
@@ -114,28 +114,24 @@ func ConditionRune(cond func(rune) bool) Parser[rune] {
 	}
 }
 
-func GetString[T any](parser Parser[T]) Parser[string] {
+func CollectString[T any](parser Parser[T]) Parser[string] {
 	return func(s State) (string, State, error) {
-		start := s.offset
 		_, next, err := parser(s)
 		if err != nil {
 			return "", s, err
 		}
-		end := s.offset
-		return string(s.buffer[start:end]), next, nil
+		result := string(keepBytes(s, next))
+		return result, next, nil
 	}
 }
 
-func GetBytes[T any](parser Parser[T]) Parser[[]byte] {
+func CollectBytes[T any](parser Parser[T]) Parser[[]byte] {
 	return func(s State) ([]byte, State, error) {
-		start := s.offset
 		_, next, err := parser(s)
 		if err != nil {
 			return nil, s, err
 		}
-		end := s.offset
-		result := make([]byte, end-start)
-		copy(result, s.buffer[start:end])
+		result := keepBytes(s, next)
 		return result, next, nil
 	}
 }
