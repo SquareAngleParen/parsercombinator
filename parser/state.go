@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"unicode/utf8"
 )
 
 type RuneError struct {
 	Position
+	Rune     rune
+	RuneSize int
+	Bytes    []byte
 }
 
 func (e RuneError) Error() string {
-	return fmt.Sprintf("parser: invalid rune at position %v", e.Position)
+	return fmt.Sprintf("parser: invalid rune at position %v %x %d %x", e.Position, e.Rune, e.RuneSize, e.Bytes)
 }
 
 type State struct {
@@ -71,7 +73,7 @@ func (s State) Rune() (rune, State, error) {
 		// TODO what did it think the error was without the rs == 1 check.
 		if r == utf8.RuneError && rs == 1 {
 			if s.data.r == nil {
-				return 0, s, RuneError{s.Position()}
+				return 0, s, RuneError{s.Position(), r, rs, s.data.buf[s.datap:]}
 			}
 			// There is more data to read.
 			if s.data.next == nil {
@@ -87,7 +89,7 @@ func (s State) Rune() (rune, State, error) {
 			r, rs = utf8.DecodeRune(runeBytes)
 			// TODO what did it think the error was without the rs == 1 check.
 			if r == utf8.RuneError && rs == 1 {
-				return 0, s, RuneError{s.Position()}
+				return 0, s, RuneError{s.Position(), r, rs, runeBytes}
 			}
 			nextState := s.nextDataState()
 			nextState.datap = rs - (len(s.data.buf) - s.datap)
@@ -110,7 +112,6 @@ func (s State) Rune() (rune, State, error) {
 
 	// r is nil OR next is not nil
 	if s.data.next != nil {
-		log.Println("Rune() ALREADY AT A NEXT")
 		return s.nextDataState().Rune()
 	}
 

@@ -5,11 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"io"
-	"log"
 	mathrand "math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -182,23 +182,16 @@ func TestState_Rune_EventuallyConsumesEOFWithEmptyLastDataNode(t *testing.T) {
 }
 
 func TestState_Rune_DuplicateFullReadsReturnTheSameResult(t *testing.T) {
+	now := time.Now()
+	seed1, seed2 := uint64(now.Unix()), uint64(now.UnixNano())
+	t.Logf("seeding rand with NewPCG(%d, %d)", seed1, seed2)
+	rand := mathrand.New(mathrand.NewPCG(seed1, seed2))
+
 	const count = 250
-	data := make([]byte, count*utf8.UTFMax)
-	p := 0
+	data := []byte{}
 	for i := 0; i < count; i++ {
-		// var r rune
-		// for {
-		// 	r = rune(mathrand.IntN(utf8.MaxRune))
-		// 	if utf8.ValidRune(r) {
-		// 		break
-		// 	}
-		// }
-		r := rune(mathrand.IntN(utf8.MaxRune))
-		ip := utf8.EncodeRune(data[p:], r)
-		p += ip
+		data = append(data, randomValidNonErrorUTF8(rand)...)
 	}
-	data = data[:p] // TODO does removing this do anything?
-	log.Println("len(data)", len(data))
 
 	s := NewStateReaderSize(bytes.NewReader(data), 13)
 
@@ -217,11 +210,18 @@ func TestState_Rune_DuplicateFullReadsReturnTheSameResult(t *testing.T) {
 	}
 }
 
-func TestState_Rune_CanProperlyDecodeAValidRuneErrorValue(t *testing.T) {
+func TestState_Rune_CanProperlyDecodeACorrectlyEncodedRuneErrorValue(t *testing.T) {
 	data := make([]byte, utf8.RuneLen(utf8.RuneError))
 	utf8.EncodeRune(data, utf8.RuneError)
 
 	s := NewStateBytes(data)
+	_, next, err := s.Rune()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.Position().Offset != 3 {
+		t.Fatal()
+	}
 
 	result, err := allStateRunes(s)
 	if err != io.EOF {
@@ -399,4 +399,14 @@ func allStateRunes(s State) ([]rune, error) {
 		r, s, err = s.Rune()
 	}
 	return result, err
+}
+
+func randomValidNonErrorUTF8(rand *mathrand.Rand) []byte {
+	r := rune(rand.IntN(utf8.MaxRune))
+	for !utf8.ValidRune(r) || r == utf8.RuneError {
+		r = rune(rand.IntN(utf8.MaxRune))
+	}
+	buf := make([]byte, utf8.RuneLen(r))
+	utf8.EncodeRune(buf, r)
+	return buf
 }
