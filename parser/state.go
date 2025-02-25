@@ -69,7 +69,7 @@ func (s State) Rune() (rune, State, error) {
 	if s.datap < len(s.data.buf) {
 		r, rs := utf8.DecodeRune(s.data.buf[s.datap:])
 		// TODO what did it think the error was without the rs == 1 check.
-		if r == utf8.RuneError {
+		if r == utf8.RuneError && rs == 1 {
 			if s.data.r == nil {
 				return 0, s, RuneError{s.Position()}
 			}
@@ -86,7 +86,7 @@ func (s State) Rune() (rune, State, error) {
 			runeBytes = append(runeBytes, s.data.next.buf[:nextDataPMax]...)
 			r, rs = utf8.DecodeRune(runeBytes)
 			// TODO what did it think the error was without the rs == 1 check.
-			if r == utf8.RuneError {
+			if r == utf8.RuneError && rs == 1 {
 				return 0, s, RuneError{s.Position()}
 			}
 			nextState := s.nextDataState()

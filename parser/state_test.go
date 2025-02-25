@@ -182,17 +182,18 @@ func TestState_Rune_EventuallyConsumesEOFWithEmptyLastDataNode(t *testing.T) {
 }
 
 func TestState_Rune_DuplicateFullReadsReturnTheSameResult(t *testing.T) {
-	// TODO
-	t.Skip()
-
 	const count = 250
 	data := make([]byte, count*utf8.UTFMax)
 	p := 0
 	for i := 0; i < count; i++ {
+		// var r rune
+		// for {
+		// 	r = rune(mathrand.IntN(utf8.MaxRune))
+		// 	if utf8.ValidRune(r) {
+		// 		break
+		// 	}
+		// }
 		r := rune(mathrand.IntN(utf8.MaxRune))
-		if r == utf8.RuneError {
-			t.Fatal("HELLO??")
-		}
 		ip := utf8.EncodeRune(data[p:], r)
 		p += ip
 	}
@@ -212,6 +213,21 @@ func TestState_Rune_DuplicateFullReadsReturnTheSameResult(t *testing.T) {
 	}
 
 	if !slices.Equal(result1, result2) {
+		t.Fatal()
+	}
+}
+
+func TestState_Rune_CanProperlyDecodeAValidRuneErrorValue(t *testing.T) {
+	data := make([]byte, utf8.RuneLen(utf8.RuneError))
+	utf8.EncodeRune(data, utf8.RuneError)
+
+	s := NewStateBytes(data)
+
+	result, err := allStateRunes(s)
+	if err != io.EOF {
+		t.Fatal(err)
+	}
+	if len(result) != 1 && result[0] != utf8.RuneError {
 		t.Fatal()
 	}
 }
